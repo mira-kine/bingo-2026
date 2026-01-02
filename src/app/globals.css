@@ -2,4 +2,21 @@
 
 @theme inline {
   --font-mono: var(--font-space-mono);
+
+  /* DESIGN.md Color Palette */
+  --color-cream-bg: #F9F6F1;
+  --color-beige-light: #EDE6DD;
+  --color-taupe-dark: #C4B5A5;
+  --color-charcoal: #4A4A4A;
+  --color-tan-accent: #B8A898;
+
+  /* Semantic color tokens */
+  --color-bingo-bg: var(--color-cream-bg);
+  --color-square-light: var(--color-beige-light);
+  --color-square-dark: var(--color-taupe-dark);
+  --color-text-primary: var(--color-charcoal);
+  --color-text-accent: var(--color-tan-accent);
+
+  /* Border */
+  --color-border-gold: var(--color-tan-accent);
 }
