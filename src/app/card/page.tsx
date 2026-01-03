@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase-client';
 import BingoCard from '@/components/BingoCard';
@@ -57,7 +58,7 @@ export default function CardPage() {
 
         setCardData({
           id: card.id,
-          quote: card.quote || ''
+          quote: card.quote || '',
         });
 
         // Fetch all goals for this card
@@ -72,26 +73,27 @@ export default function CardPage() {
         }
 
         // Transform data to match Goal interface
-        const transformedGoals: Goal[] = (goalsData || []).map(g => ({
-          id: g.id,
-          position: g.position || 0,
-          goal: g.goal || '',
-          completed: g.completed || false
+        const transformedGoals: Goal[] = (goalsData || []).map((goal) => ({
+          id: goal.id,
+          position: goal.position || 0,
+          goal: goal.goal || '',
+          completed: goal.completed || false,
         }));
 
         setGoals(transformedGoals);
       } catch (err) {
         console.error('Error fetching card data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load bingo card');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load bingo card'
+        );
       } finally {
         setLoading(false);
       }
     }
 
     fetchCardData();
-  }, [userId]);
+  }, [userId, supabase]);
 
-  // CRUD Operations
   const handleUpdateGoal = async (goalId: string, newText: string) => {
     try {
       const { error } = await supabase
@@ -102,9 +104,9 @@ export default function CardPage() {
       if (error) throw error;
 
       // Update local state
-      setGoals(prev => prev.map(g =>
-        g.id === goalId ? { ...g, goal: newText } : g
-      ));
+      setGoals((prev) =>
+        prev.map((g) => (g.id === goalId ? { ...g, goal: newText } : g))
+      );
     } catch (err) {
       console.error('Error updating goal:', err);
       alert('Failed to update goal');
@@ -121,9 +123,9 @@ export default function CardPage() {
       if (error) throw error;
 
       // Update local state
-      setGoals(prev => prev.map(g =>
-        g.id === goalId ? { ...g, completed } : g
-      ));
+      setGoals((prev) =>
+        prev.map((g) => (g.id === goalId ? { ...g, completed } : g))
+      );
     } catch (err) {
       console.error('Error toggling completion:', err);
       alert('Failed to update goal status');
@@ -138,49 +140,59 @@ export default function CardPage() {
         .from('bingo_cards')
         .update({
           quote: newQuote,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', cardData.id);
 
       if (error) throw error;
 
       // Update local state
-      setCardData(prev => prev ? { ...prev, quote: newQuote } : null);
+      setCardData((prev) => (prev ? { ...prev, quote: newQuote } : null));
     } catch (err) {
       console.error('Error updating quote:', err);
       alert('Failed to update intention');
     }
   };
 
-  // Render states
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bingo-bg)' }}>
-        <p className="text-lg" style={{ color: 'var(--color-charcoal)' }}>Loading your bingo card...</p>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-bingo-bg)' }}
+      >
+        <p className="text-lg" style={{ color: 'var(--color-charcoal)' }}>
+          Loading your bingo card...
+        </p>
       </div>
     );
   }
 
   if (error || !cardData) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bingo-bg)' }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-bingo-bg)' }}
+      >
         <div className="text-center">
-          <p className="text-lg mb-4" style={{ color: 'var(--color-charcoal)' }}>
+          <p
+            className="text-lg mb-4"
+            style={{ color: 'var(--color-charcoal)' }}
+          >
             {error || 'Unable to load bingo card'}
           </p>
-          <a
-            href="/"
-            className="text-blue-600 hover:underline"
-          >
+          <Link href="/" className="text-blue-600 hover:underline">
             Return to home
-          </a>
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-12" style={{ backgroundColor: 'var(--color-bingo-bg)' }}>
+    <div
+      className="min-h-screen py-12"
+      style={{ backgroundColor: 'var(--color-bingo-bg)' }}
+    >
       <BingoCard
         goals={goals}
         quote={cardData.quote}
