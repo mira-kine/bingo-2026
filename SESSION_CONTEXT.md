@@ -8,7 +8,7 @@
 
 - **Landing page** (`src/app/page.tsx`): Name-based authentication flow complete
   - Checks if user exists by name
-  - Creates new user + bingo card + 25 empty goals if new
+  - Creates new user + bingo card + 9 empty goals if new (3x3 grid)
   - Navigates to `/card?userId={userId}` after login/signup
 
 - **Card Page** (`src/app/card/page.tsx`): Fully functional with data persistence
@@ -23,7 +23,7 @@
   - Space Mono font integrated in `layout.tsx`
 
 - **BingoCard Component** (`src/components/BingoCard.tsx`): Enhanced interactive UI
-  - 5x5 grid with checkerboard pattern (alternating beige/taupe)
+  - 3x3 grid with checkerboard pattern (alternating beige/taupe) - mobile-first design
   - **NEW INTERACTION MODEL:**
     - **Desktop:** Click all 4 corners of a box to mark complete
     - **Mobile:** Swipe across box 3 times to mark complete
@@ -31,7 +31,7 @@
   - Visual feedback: corner dots (fill when clicked), swipe counter
   - Empty goal boxes show no placeholder text (cleaner look)
   - Click to edit quote/intention at bottom
-  - Heart icon in center free space (position 12)
+  - Heart icon in center free space (position 4)
   - Help button (?) with instructions modal
   - Callbacks: `onUpdateGoal`, `onToggleComplete`, `onUpdateQuote`
 
@@ -59,7 +59,7 @@
 ```
 users: id (uuid), name (text), created_at
 bingo_cards: id (uuid), user_id (FK), quote (text), created_at, updated_at
-goals: id (uuid), bingo_card_id (FK), position (0-24), goal (text), completed (bool), created_at
+goals: id (uuid), bingo_card_id (FK), position (0-8), goal (text), completed (bool), created_at
 ```
 
 ### Key Files
@@ -69,7 +69,8 @@ goals: id (uuid), bingo_card_id (FK), position (0-24), goal (text), completed (b
 
 ### Design Decisions
 - **One card per user** (enforced in app logic, not DB)
-- **Position 12 = free space** (center of 5x5 grid)
+- **Position 4 = free space** (center of 3x3 grid)
+- **Mobile-first design** with 3x3 grid for optimal mobile experience
 - **Simple name-based auth** (no Supabase Auth for MVP)
 - **No RLS** for MVP (direct database access)
 - **Enhanced interaction model:**

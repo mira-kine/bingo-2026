@@ -27,12 +27,12 @@ interface CornerClicks {
 }
 
 /**
- * BingoCard component - interactive 5x5 grid of goals
+ * BingoCard component - interactive 3x3 grid of goals
  * New interaction model:
  * - Double-click (or tap on mobile) to edit goal text
  * - Click all 4 corners OR swipe 3 times to mark as complete
  * - Editable quote/intention
- * - Free space with heart icon at position 12
+ * - Free space with heart icon at position 4 (center of 3x3 grid)
  *
  * Follows DESIGN.md specifications:
  * - Alternating beige/taupe colors in checkerboard pattern
@@ -65,8 +65,8 @@ export default function BingoCard({
 
   // Determine if a square should be dark or light based on checkerboard pattern
   const isDarkSquare = (position: number) => {
-    const row = Math.floor(position / 5);
-    const col = position % 5;
+    const row = Math.floor(position / 3);
+    const col = position % 3;
     return (row + col) % 2 === 1;
   };
 
@@ -95,7 +95,7 @@ export default function BingoCard({
 
   // Handle click on goal - track corner clicks
   const handleGoalClick = (goal: Goal, event: React.MouseEvent<HTMLDivElement>) => {
-    if (goal.position === 12 || editingGoalId || goal.completed) return;
+    if (goal.position === 4 || editingGoalId || goal.completed) return;
 
     const corner = detectCorner(event);
     const currentClicks = cornerClicks[goal.id] || {
@@ -118,13 +118,13 @@ export default function BingoCard({
 
   // Handle double-click to edit
   const handleGoalDoubleClick = (goal: Goal) => {
-    if (goal.position === 12) return; // Free space not editable
+    if (goal.position === 4) return; // Free space not editable
     setEditingGoalId(goal.id);
   };
 
   // Handle touch start for swipe detection
   const handleTouchStart = (goal: Goal, event: React.TouchEvent<HTMLDivElement>) => {
-    if (goal.position === 12 || editingGoalId || goal.completed) return;
+    if (goal.position === 4 || editingGoalId || goal.completed) return;
 
     const touch = event.touches[0];
     touchStartRef.current = {
@@ -137,7 +137,7 @@ export default function BingoCard({
   // Handle touch end for swipe detection
   const handleTouchEnd = (goal: Goal, event: React.TouchEvent<HTMLDivElement>) => {
     if (!touchStartRef.current || touchStartRef.current.goalId !== goal.id) return;
-    if (goal.position === 12 || editingGoalId || goal.completed) return;
+    if (goal.position === 4 || editingGoalId || goal.completed) return;
 
     const touch = event.changedTouches[0];
     const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
@@ -251,10 +251,10 @@ export default function BingoCard({
         </h1>
       </div>
 
-      {/* 5x5 Grid */}
-      <div className="grid grid-cols-5 gap-2 mb-8">
+      {/* 3x3 Grid */}
+      <div className="grid grid-cols-3 gap-2 mb-8">
         {sortedGoals.map((goal) => {
-          const isFreeSpace = goal.position === 12;
+          const isFreeSpace = goal.position === 4;
           const isDark = isDarkSquare(goal.position);
           const isEditing = editingGoalId === goal.id;
           const clicks = cornerClicks[goal.id] || { topLeft: false, topRight: false, bottomLeft: false, bottomRight: false };
