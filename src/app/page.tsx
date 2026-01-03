@@ -56,8 +56,8 @@ export default function Home() {
 
         if (createCardError || !newCard) throw createCardError;
 
-        // Create 25 empty goals
-        const goals = Array.from({ length: 25 }, (_, i) => ({
+        // Create 9 empty goals for 3x3 grid
+        const goals = Array.from({ length: 9 }, (_, i) => ({
           bingo_card_id: newCard.id,
           position: i,
           goal: '',
