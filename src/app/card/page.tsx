@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase-client';
@@ -18,7 +18,7 @@ interface BingoCardData {
   quote: string;
 }
 
-export default function CardPage() {
+function CardPageContent() {
   const searchParams = useSearchParams();
   const userId = searchParams.get('userId');
 
@@ -201,5 +201,24 @@ export default function CardPage() {
         onUpdateQuote={handleUpdateQuote}
       />
     </div>
+  );
+}
+
+export default function CardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="min-h-screen flex items-center justify-center"
+          style={{ backgroundColor: 'var(--color-bingo-bg)' }}
+        >
+          <p className="text-lg" style={{ color: 'var(--color-charcoal)' }}>
+            Loading your bingo card...
+          </p>
+        </div>
+      }
+    >
+      <CardPageContent />
+    </Suspense>
   );
 }
