@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface Goal {
   id: string;
@@ -17,20 +17,19 @@ interface BingoCardProps {
   onUpdateQuote: (newQuote: string) => Promise<void>;
 }
 
-type Corner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
-
-interface CornerClicks {
-  topLeft: boolean;
-  topRight: boolean;
-  bottomLeft: boolean;
-  bottomRight: boolean;
+interface LongPressState {
+  goalId: string;
+  progress: number; // 0 to 1
+  startTime: number;
+  startX: number; // Initial press X position
+  startY: number; // Initial press Y position
 }
 
 /**
  * BingoCard component - interactive 3x3 grid of goals
  * New interaction model:
  * - Double-click (or tap on mobile) to edit goal text
- * - Click all 4 corners OR swipe 3 times to mark as complete
+ * - Long press (3 seconds) to mark as complete with progress ring animation
  * - Editable quote/intention
  * - Free space with heart icon at position 4 (center of 3x3 grid)
  *
@@ -51,14 +50,15 @@ export default function BingoCard({
   const [tempQuote, setTempQuote] = useState(quote);
   const [showHelp, setShowHelp] = useState(false);
 
-  // Track corner clicks for each goal
-  const [cornerClicks, setCornerClicks] = useState<Record<string, CornerClicks>>({});
+  // Long press state
+  const [longPressState, setLongPressState] = useState<LongPressState | null>(
+    null
+  );
+  const animationFrameRef = useRef<number | null>(null);
 
-  // Track swipe count for each goal
-  const [swipeCounts, setSwipeCounts] = useState<Record<string, number>>({});
-
-  // Track touch start position for swipe detection
-  const touchStartRef = useRef<{ x: number; y: number; goalId: string } | null>(null);
+  // Constants
+  const LONG_PRESS_DURATION = 3000; // 3 seconds in milliseconds
+  const MOVEMENT_THRESHOLD = 10; // pixels - cancel if moved more than this
 
   // Sort goals by position to ensure correct order
   const sortedGoals = [...goals].sort((a, b) => a.position - b.position);
@@ -70,94 +70,129 @@ export default function BingoCard({
     return (row + col) % 2 === 1;
   };
 
-  // Detect which corner was clicked based on click position within the element
-  const detectCorner = (event: React.MouseEvent<HTMLDivElement>): Corner => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const width = rect.width;
-    const height = rect.height;
-
-    // Divide into quadrants
-    const isLeft = x < width / 2;
-    const isTop = y < height / 2;
-
-    if (isTop && isLeft) return 'topLeft';
-    if (isTop && !isLeft) return 'topRight';
-    if (!isTop && isLeft) return 'bottomLeft';
-    return 'bottomRight';
+  // Haptic feedback helper
+  const triggerHaptic = (intensity: 'light' | 'medium' | 'heavy'): void => {
+    if ('vibrate' in navigator) {
+      const duration =
+        intensity === 'light' ? 10 : intensity === 'medium' ? 20 : 50;
+      navigator.vibrate(duration);
+    }
   };
 
-  // Check if all corners have been clicked
-  const areAllCornersClicked = (clicks: CornerClicks): boolean => {
-    return clicks.topLeft && clicks.topRight && clicks.bottomLeft && clicks.bottomRight;
+  // Cancel long press
+  const cancelLongPress = (): void => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    setLongPressState(null);
   };
 
-  // Handle click on goal - track corner clicks
-  const handleGoalClick = (goal: Goal, event: React.MouseEvent<HTMLDivElement>) => {
+  // Start long press
+  const handlePressStart = (
+    goal: Goal,
+    clientX: number,
+    clientY: number
+  ): void => {
     if (goal.position === 4 || editingGoalId || goal.completed) return;
 
-    const corner = detectCorner(event);
-    const currentClicks = cornerClicks[goal.id] || {
-      topLeft: false,
-      topRight: false,
-      bottomLeft: false,
-      bottomRight: false,
+    triggerHaptic('light');
+    setLongPressState({
+      goalId: goal.id,
+      progress: 0,
+      startTime: Date.now(),
+      startX: clientX,
+      startY: clientY,
+    });
+  };
+
+  // Animation loop for long press progress (time-based, not frame-based)
+  useEffect(() => {
+    if (!longPressState) return;
+
+    const animate = () => {
+      const elapsed = Date.now() - longPressState.startTime;
+      const progress = Math.min(elapsed / LONG_PRESS_DURATION, 1);
+
+      setLongPressState((prev) => {
+        if (!prev) return null;
+        return { ...prev, progress };
+      });
+
+      if (progress >= 1) {
+        // Complete! Goal achieved
+        triggerHaptic('heavy');
+        onToggleComplete(longPressState.goalId, true);
+        cancelLongPress();
+      } else {
+        // Continue animation - uses requestAnimationFrame for smoothness
+        // but progress is calculated based on actual time elapsed
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
     };
 
-    const newClicks = { ...currentClicks, [corner]: true };
-    setCornerClicks({ ...cornerClicks, [goal.id]: newClicks });
+    animationFrameRef.current = requestAnimationFrame(animate);
 
-    // Check if all corners are clicked
-    if (areAllCornersClicked(newClicks)) {
-      onToggleComplete(goal.id, true);
-      // Reset corner clicks
-      setCornerClicks({ ...cornerClicks, [goal.id]: { topLeft: false, topRight: false, bottomLeft: false, bottomRight: false } });
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [longPressState?.goalId, longPressState?.startTime]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Check if movement exceeds threshold
+  const hasMovedTooFar = (currentX: number, currentY: number): boolean => {
+    if (!longPressState) return false;
+    const deltaX = Math.abs(currentX - longPressState.startX);
+    const deltaY = Math.abs(currentY - longPressState.startY);
+    return deltaX > MOVEMENT_THRESHOLD || deltaY > MOVEMENT_THRESHOLD;
+  };
+
+  // Mouse event handlers
+  const handleMouseDown = (
+    goal: Goal,
+    event: React.MouseEvent<HTMLDivElement>
+  ): void => {
+    handlePressStart(goal, event.clientX, event.clientY);
+  };
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>): void => {
+    if (longPressState && hasMovedTooFar(event.clientX, event.clientY)) {
+      cancelLongPress();
     }
+  };
+
+  const handleMouseUp = (): void => {
+    cancelLongPress();
+  };
+
+  // Touch event handlers
+  const handleTouchStart = (
+    goal: Goal,
+    event: React.TouchEvent<HTMLDivElement>
+  ): void => {
+    const touch = event.touches[0];
+    handlePressStart(goal, touch.clientX, touch.clientY);
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>): void => {
+    if (longPressState && event.touches[0]) {
+      const touch = event.touches[0];
+      if (hasMovedTooFar(touch.clientX, touch.clientY)) {
+        cancelLongPress();
+      }
+    }
+  };
+
+  const handleTouchEnd = (): void => {
+    cancelLongPress();
   };
 
   // Handle double-click to edit
-  const handleGoalDoubleClick = (goal: Goal) => {
+  const handleGoalDoubleClick = (goal: Goal): void => {
     if (goal.position === 4) return; // Free space not editable
+    cancelLongPress(); // Cancel any ongoing long press
     setEditingGoalId(goal.id);
-  };
-
-  // Handle touch start for swipe detection
-  const handleTouchStart = (goal: Goal, event: React.TouchEvent<HTMLDivElement>) => {
-    if (goal.position === 4 || editingGoalId || goal.completed) return;
-
-    const touch = event.touches[0];
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      goalId: goal.id,
-    };
-  };
-
-  // Handle touch end for swipe detection
-  const handleTouchEnd = (goal: Goal, event: React.TouchEvent<HTMLDivElement>) => {
-    if (!touchStartRef.current || touchStartRef.current.goalId !== goal.id) return;
-    if (goal.position === 4 || editingGoalId || goal.completed) return;
-
-    const touch = event.changedTouches[0];
-    const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
-    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
-
-    // Detect horizontal swipe (deltaX > deltaY and deltaX > threshold)
-    if (deltaX > deltaY && deltaX > 30) {
-      const currentCount = swipeCounts[goal.id] || 0;
-      const newCount = currentCount + 1;
-      setSwipeCounts({ ...swipeCounts, [goal.id]: newCount });
-
-      // Mark complete after 3 swipes
-      if (newCount >= 3) {
-        onToggleComplete(goal.id, true);
-        // Reset swipe count
-        setSwipeCounts({ ...swipeCounts, [goal.id]: 0 });
-      }
-    }
-
-    touchStartRef.current = null;
   };
 
   const handleGoalBlur = async (goal: Goal, newText: string) => {
@@ -209,19 +244,20 @@ export default function BingoCard({
             >
               How to Use Your Bingo Card
             </h3>
-            <div className="space-y-3 text-sm" style={{ color: 'var(--color-charcoal)' }}>
+            <div
+              className="space-y-3 text-sm"
+              style={{ color: 'var(--color-charcoal)' }}
+            >
               <div>
-                <strong>To edit a goal:</strong> Double-click (or tap on mobile) on any box to add or edit your goal text.
+                <strong>To edit a goal:</strong> Double-click (or tap on mobile)
+                on any box to add or edit your goal text.
               </div>
               <div>
-                <strong>To mark as complete:</strong>
-                <ul className="list-disc ml-5 mt-1">
-                  <li>Desktop: Click all 4 corners of the box</li>
-                  <li>Mobile: Swipe across the box 3 times</li>
-                </ul>
+                <strong>To mark as complete:</strong> Press and hold on a box for 3 seconds. A progress ring will fill up to show your progress. Keep your finger/mouse steady!
               </div>
               <div>
-                <strong>To edit your intention:</strong> Click the quote text at the bottom to add your 2026 intention.
+                <strong>To edit your intention:</strong> Click the quote text at
+                the bottom to add your 2026 intention.
               </div>
             </div>
             <button
@@ -257,8 +293,8 @@ export default function BingoCard({
           const isFreeSpace = goal.position === 4;
           const isDark = isDarkSquare(goal.position);
           const isEditing = editingGoalId === goal.id;
-          const clicks = cornerClicks[goal.id] || { topLeft: false, topRight: false, bottomLeft: false, bottomRight: false };
-          const swipeCount = swipeCounts[goal.id] || 0;
+          const isLongPressing = longPressState?.goalId === goal.id;
+          const progress = isLongPressing ? longPressState.progress : 0;
 
           return (
             <div
@@ -274,64 +310,47 @@ export default function BingoCard({
                 opacity: goal.completed ? 0.5 : 1,
                 textDecoration: goal.completed ? 'line-through' : 'none',
               }}
-              onClick={(e) => handleGoalClick(goal, e)}
-              onDoubleClick={() => handleGoalDoubleClick(goal)}
+              onMouseDown={(e) => handleMouseDown(goal, e)}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
               onTouchStart={(e) => handleTouchStart(goal, e)}
-              onTouchEnd={(e) => handleTouchEnd(goal, e)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onDoubleClick={() => handleGoalDoubleClick(goal)}
             >
-              {/* Corner indicators */}
-              {!isFreeSpace && !goal.completed && !isEditing && (
-                <>
-                  <div
-                    className="absolute w-2 h-2 rounded-full transition-all"
-                    style={{
-                      top: '4px',
-                      left: '4px',
-                      backgroundColor: clicks.topLeft ? 'var(--color-charcoal)' : 'transparent',
-                      border: '1px solid var(--color-charcoal)',
-                      opacity: clicks.topLeft ? 1 : 0.2,
-                    }}
-                  />
-                  <div
-                    className="absolute w-2 h-2 rounded-full transition-all"
-                    style={{
-                      top: '4px',
-                      right: '4px',
-                      backgroundColor: clicks.topRight ? 'var(--color-charcoal)' : 'transparent',
-                      border: '1px solid var(--color-charcoal)',
-                      opacity: clicks.topRight ? 1 : 0.2,
-                    }}
-                  />
-                  <div
-                    className="absolute w-2 h-2 rounded-full transition-all"
-                    style={{
-                      bottom: '4px',
-                      left: '4px',
-                      backgroundColor: clicks.bottomLeft ? 'var(--color-charcoal)' : 'transparent',
-                      border: '1px solid var(--color-charcoal)',
-                      opacity: clicks.bottomLeft ? 1 : 0.2,
-                    }}
-                  />
-                  <div
-                    className="absolute w-2 h-2 rounded-full transition-all"
-                    style={{
-                      bottom: '4px',
-                      right: '4px',
-                      backgroundColor: clicks.bottomRight ? 'var(--color-charcoal)' : 'transparent',
-                      border: '1px solid var(--color-charcoal)',
-                      opacity: clicks.bottomRight ? 1 : 0.2,
-                    }}
-                  />
-                </>
-              )}
-
-              {/* Swipe count indicator */}
-              {!isFreeSpace && !goal.completed && !isEditing && swipeCount > 0 && (
-                <div
-                  className="absolute bottom-1 right-1 text-xs font-bold"
-                  style={{ color: 'var(--color-charcoal)', opacity: 0.5 }}
-                >
-                  {swipeCount}/3
+              {/* Progress Ring - shows during long press */}
+              {isLongPressing && progress > 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <svg
+                    className="transform -rotate-90"
+                    width="60"
+                    height="60"
+                    viewBox="0 0 60 60"
+                  >
+                    {/* Background circle */}
+                    <circle
+                      cx="30"
+                      cy="30"
+                      r="25"
+                      fill="none"
+                      stroke="var(--color-charcoal)"
+                      strokeWidth="3"
+                      opacity="0.2"
+                    />
+                    {/* Progress circle */}
+                    <circle
+                      cx="30"
+                      cy="30"
+                      r="25"
+                      fill="none"
+                      stroke="var(--color-charcoal)"
+                      strokeWidth="3"
+                      strokeDasharray={`${2 * Math.PI * 25}`}
+                      strokeDashoffset={`${2 * Math.PI * 25 * (1 - progress)}`}
+                      style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+                    />
+                  </svg>
                 </div>
               )}
 
@@ -357,9 +376,7 @@ export default function BingoCard({
                   onDoubleClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <span className="break-words">
-                  {goal.goal}
-                </span>
+                <span className="break-words">{goal.goal}</span>
               )}
             </div>
           );
