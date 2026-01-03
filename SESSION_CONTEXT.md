@@ -82,12 +82,34 @@ goals: id (uuid), bingo_card_id (FK), position (0-8), goal (text), completed (bo
 
 ## Next Actions (In Order)
 
-**CURRENT PRIORITY:** Phase 5 - Share & Export Features
+**CURRENT PRIORITY:** Complete Long Press Interaction (Phase 4.6)
+1. Finish implementing long press (3 seconds) interaction
+2. Add progress ring animation
+3. Add haptic feedback
+4. Update help modal with new instructions
+5. Test on desktop and mobile
+
+**AFTER CURRENT WORK:**
+Phase 5 - Share & Export Features
 1. Implement shareable URL functionality (`/card/[uuid]` route)
 2. Add public read-only view
 3. Add print-friendly CSS
 4. Implement export as image feature
 5. Add copy link and download buttons to UI
+
+## Future Roadmap
+
+### Phase 6: Progressive Web App (PWA) Migration
+- Add manifest.json for installability
+- Implement service worker for offline support
+- Enable "Add to Home Screen" functionality
+- Optimize for native-like mobile experience
+- Push notifications (optional)
+
+### Phase 7: React Native (Future Consideration)
+- Evaluate need for native app vs PWA
+- If needed: Migrate to React Native for iOS/Android app stores
+- Native features: camera integration, advanced haptics, etc.
 
 **TESTING:**
 - Manual testing of corner-click completion on desktop
