@@ -316,7 +316,7 @@ export default function BingoCard({
           return (
             <div
               key={goal.id}
-              className={`aspect-square rounded-lg flex items-center justify-center p-3 text-center text-sm leading-tight transition-all relative ${
+              className={`aspect-square rounded-lg flex items-center justify-center p-3 text-center text-sm leading-tight transition-all relative overflow-auto ${
                 !isFreeSpace ? 'cursor-pointer hover:opacity-80' : ''
               }`}
               style={{
@@ -329,7 +329,7 @@ export default function BingoCard({
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 WebkitTouchCallout: 'none',
-                touchAction: 'none',
+                touchAction: 'pan-y', // Allow vertical scrolling but prevent text selection
               }}
               onMouseDown={(e) => handleMouseDown(goal, e)}
               onMouseMove={handleMouseMove}
