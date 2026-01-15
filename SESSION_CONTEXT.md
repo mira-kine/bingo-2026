@@ -1,10 +1,10 @@
 # Session Context - 2026 Vision Bingo
 
-**Last Updated:** 2026-01-02
+**Last Updated:** 2026-01-14
 
 ## Current Status
 
-### ✅ What's Working (Phases 1-4.5 Complete)
+### ✅ What's Working (Phases 1-5 Complete)
 
 - **Landing page** (`src/app/page.tsx`): Name-based authentication flow complete
   - Checks if user exists by name
@@ -35,22 +35,38 @@
   - Help button (?) with instructions modal
   - Callbacks: `onUpdateGoal`, `onToggleComplete`, `onUpdateQuote`
 
-### 🚧 What's Next (Phase 5: Share & Export Features)
+- **Enhanced Long Press Interaction** (`src/components/BingoCard.tsx`): Phase 4.6 complete
+  - Press and hold for 2 seconds to mark goal complete
+  - Progress ring grows from 25% → 100% with smooth animation
+  - Haptic feedback on start (light) and completion (heavy)
+  - Prevents DOM text highlighting on mobile (touchAction: 'none')
+  - Only activates on boxes with goal text (not empty boxes)
+  - Movement threshold (10px) cancels long press if finger/mouse moves
 
-1. **Shareable URLs** - Generate public shareable links
-   - Create `/card/[uuid]` dynamic route for public viewing
-   - Read-only view for non-owners
-   - Copy link button on card page
+- **Share & Export Features** (Phase 5 complete)
+  - **Shareable URLs**: `/card/[cardId]` dynamic route for public viewing
+  - **Public View Page**: Read-only view for anyone with the link
+  - **Copy Link Button**: "Share Card" button copies shareable URL
+  - **Download Image**: "Download Image" button exports card as PNG (html2canvas)
+  - **Print-Friendly CSS**: Media queries optimize card for printing
+  - Shows owner's name on public view ("User's 2026 Vision Board")
+  - Help button and edit functionality hidden in read-only mode
 
-2. **Export Features**
-   - Print-friendly CSS styling
-   - Export as image (using html2canvas or similar)
-   - Download button on card page
+### 🚧 What's Next (Phase 6: Progressive Web App)
 
-3. **Polish & Testing**
-   - Test corner-click interaction on various screen sizes
-   - Test swipe interaction on mobile devices
-   - Verify all edge cases (empty cards, completed cards, etc.)
+1. **PWA Setup**
+   - Add manifest.json for installability
+   - Implement service worker for offline support
+   - Enable "Add to Home Screen" functionality
+   - Optimize for native-like mobile experience
+   - Push notifications (optional)
+
+2. **Testing & Polish**
+   - E2E testing of all features
+   - Test shareable links and public view
+   - Test image export quality
+   - Test print functionality
+   - Mobile device testing across iOS/Android
    - Performance optimization if needed
 
 ## Implementation Details
@@ -82,20 +98,20 @@ goals: id (uuid), bingo_card_id (FK), position (0-8), goal (text), completed (bo
 
 ## Next Actions (In Order)
 
-**CURRENT PRIORITY:** Complete Long Press Interaction (Phase 4.6)
-1. Finish implementing long press (3 seconds) interaction
-2. Add progress ring animation
-3. Add haptic feedback
-4. Update help modal with new instructions
-5. Test on desktop and mobile
+**CURRENT STATUS:** MVP Complete! Phases 1-5 finished.
 
-**AFTER CURRENT WORK:**
-Phase 5 - Share & Export Features
-1. Implement shareable URL functionality (`/card/[uuid]` route)
-2. Add public read-only view
-3. Add print-friendly CSS
-4. Implement export as image feature
-5. Add copy link and download buttons to UI
+**NEXT PRIORITY:** Phase 6 - Progressive Web App (PWA) Migration
+1. Create manifest.json with app metadata and icons
+2. Implement service worker for offline caching
+3. Add "Add to Home Screen" prompt
+4. Test PWA functionality on iOS and Android
+5. Optimize for native-like experience
+
+**OPTIONAL ENHANCEMENTS:**
+- Push notifications for goal reminders
+- Dark mode support
+- Multiple card templates/themes
+- Social sharing with preview cards
 
 ## Future Roadmap
 
@@ -117,27 +133,52 @@ Phase 5 - Share & Export Features
 - End-to-end flow testing (already confirmed working)
 - Playwright MCP server is available and tested
 
+## Recent Session Updates (2026-01-14)
+
+### UI Improvements
+- **Viewport optimization**: Card now fills screen without scrolling (calc(100vh - 2rem))
+- **Title redesign**: Changed from two-line "2026 / BINGO" to single-line "2026 BINGO"
+- **Textarea centering**: Edit mode textarea now centers both horizontally and vertically
+- **Cursor positioning**: When editing, cursor starts at middle of existing text
+- **Responsive padding**: Uses `sm:` variants for better mobile/desktop spacing
+
+### Phase 5 Completion (Share & Export)
+- Created `/card/[cardId]` dynamic route for public shareable links
+- Built read-only public view page with owner name display
+- Added "Share Card" button with clipboard copy (shows "✓ Link Copied!" feedback)
+- Added "Download Image" button using html2canvas (exports as PNG at 2x scale)
+- Implemented print-friendly CSS with @media print queries
+- BingoCard component now accepts `isReadOnly` prop to disable all editing
+
 ## Important Implementation Notes
 
 ### Interaction State Management
-- **Corner clicks:** Tracked in `cornerClicks` state (Record<goalId, CornerClicks>)
-- **Swipe counts:** Tracked in `swipeCounts` state (Record<goalId, number>)
-- **Touch tracking:** `touchStartRef` used to detect swipe direction and distance
-- Corner detection: Divides box into quadrants based on click position
-- Swipe detection: Requires horizontal movement > 30px
+- **Long press:** Tracked in `longPressState` (goalId, progress, startTime, startX, startY)
+- **Progress animation:** Uses requestAnimationFrame for smooth 60fps updates
+- **Movement detection:** Cancels long press if moved > 10px from start position
+- **Time-based progress:** progress = elapsed / LONG_PRESS_DURATION (2000ms)
+- **Visual feedback:** SVG circle scales from 0.25 to 1.0 and fills circumference
 
 ### Component Architecture
 - `src/components/BingoCard.tsx`: Main UI component (client-side)
-  - Manages local state for editing, corner clicks, swipes
+  - Manages local state for editing, long press progress, help modal
   - Calls parent callbacks for database updates
-- `src/app/card/page.tsx`: Page component that loads data and handles CRUD
-  - Fetches data from Supabase on mount
+  - Accepts `isReadOnly` prop to disable editing in public view
+- `src/app/card/page.tsx`: Private card page (user's own card)
+  - Fetches data from Supabase by userId
   - Provides callbacks to BingoCard for mutations
+  - Includes "Share Card" and "Download Image" buttons
   - Handles loading/error states
+- `src/app/card/[cardId]/page.tsx`: Public shareable card page
+  - Fetches data from Supabase by cardId (UUID)
+  - Read-only mode (isReadOnly={true})
+  - Shows owner's name
+  - Link to create own card
 
 ### Tech Stack
 - Next.js 16 (App Router) with client components ('use client')
 - Tailwind CSS v4 with inline theme syntax
 - Supabase for backend/database
 - TypeScript for type safety
+- html2canvas for image export functionality
 - No external icon library needed (removed lucide-react dependency)

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase-client';
 import BingoCard from '@/components/BingoCard';
+import html2canvas from 'html2canvas';
 
 interface Goal {
   id: string;
@@ -26,7 +27,10 @@ function CardPageContent() {
   const [cardData, setCardData] = useState<BingoCardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
+  const cardRef = useRef<HTMLDivElement>(null);
   const supabase = createBrowserClient();
 
   // Fetch bingo card and goals
@@ -154,6 +158,75 @@ function CardPageContent() {
     }
   };
 
+  const handleCopyShareLink = async () => {
+    if (!cardData) return;
+
+    const shareUrl = `${window.location.origin}/card/${cardData.id}`;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      alert('Failed to copy link to clipboard');
+    }
+  };
+
+  const handleExportImage = async () => {
+    if (!cardRef.current) return;
+
+    setExporting(true);
+
+    try {
+      // Wait a bit for images to fully load
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: '#F9F6F1',
+        scale: 2, // Higher quality
+        logging: false,
+        useCORS: true, // Allow cross-origin images
+        allowTaint: true, // Allow tainted canvases
+        imageTimeout: 0, // No timeout for images
+        onclone: (clonedDoc) => {
+          // Ensure images are properly sized in the clone
+          const images = clonedDoc.getElementsByTagName('img');
+          Array.from(images).forEach((img) => {
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'cover';
+          });
+
+          // Hide elements that shouldn't be exported (help button, etc.)
+          const noExportElements = clonedDoc.querySelectorAll('.no-export');
+          noExportElements.forEach((el) => {
+            (el as HTMLElement).style.display = 'none';
+          });
+        },
+      });
+
+      // Convert canvas to blob and download
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = '2026-vision-bingo.png';
+        link.click();
+
+        // Cleanup
+        URL.revokeObjectURL(url);
+      });
+    } catch (err) {
+      console.error('Failed to export image:', err);
+      alert('Failed to export image');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div
@@ -190,16 +263,39 @@ function CardPageContent() {
 
   return (
     <div
-      className="min-h-screen py-12"
+      className="min-h-screen flex items-center justify-center p-4"
       style={{ backgroundColor: 'var(--color-bingo-bg)' }}
     >
-      <BingoCard
-        goals={goals}
-        quote={cardData.quote}
-        onUpdateGoal={handleUpdateGoal}
-        onToggleComplete={handleToggleComplete}
-        onUpdateQuote={handleUpdateQuote}
-      />
+      <div className="w-full max-w-2xl">
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-2 mb-4">
+          <button
+            onClick={handleExportImage}
+            disabled={exporting}
+            className="px-4 py-2 rounded-md text-white text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-tan-accent)' }}
+          >
+            {exporting ? 'Exporting...' : 'Download Image'}
+          </button>
+          <button
+            onClick={handleCopyShareLink}
+            className="px-4 py-2 rounded-md text-white text-sm font-medium transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--color-tan-accent)' }}
+          >
+            {copied ? '✓ Link Copied!' : 'Share Card'}
+          </button>
+        </div>
+
+        <div ref={cardRef}>
+          <BingoCard
+            goals={goals}
+            quote={cardData.quote}
+            onUpdateGoal={handleUpdateGoal}
+            onToggleComplete={handleToggleComplete}
+            onUpdateQuote={handleUpdateQuote}
+          />
+        </div>
+      </div>
     </div>
   );
 }
