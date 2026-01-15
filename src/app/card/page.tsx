@@ -179,10 +179,31 @@ function CardPageContent() {
     setExporting(true);
 
     try {
+      // Wait a bit for images to fully load
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: '#F9F6F1',
         scale: 2, // Higher quality
         logging: false,
+        useCORS: true, // Allow cross-origin images
+        allowTaint: true, // Allow tainted canvases
+        imageTimeout: 0, // No timeout for images
+        onclone: (clonedDoc) => {
+          // Ensure images are properly sized in the clone
+          const images = clonedDoc.getElementsByTagName('img');
+          Array.from(images).forEach((img) => {
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'cover';
+          });
+
+          // Hide elements that shouldn't be exported (help button, etc.)
+          const noExportElements = clonedDoc.querySelectorAll('.no-export');
+          noExportElements.forEach((el) => {
+            (el as HTMLElement).style.display = 'none';
+          });
+        },
       });
 
       // Convert canvas to blob and download

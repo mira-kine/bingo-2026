@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 
 interface Goal {
   id: string;
@@ -106,11 +107,14 @@ export default function BingoCard({
       return;
 
     triggerHaptic('light');
-    // eslint-disable-next-line react-compiler/react-compiler
+
+    // Capture timestamp before state update to satisfy React purity rules
+    const timestamp = performance.now();
+
     setLongPressState({
       goalId: goal.id,
       progress: 0,
-      startTime: performance.now(),
+      startTime: timestamp,
       startX: clientX,
       startY: clientY,
     });
@@ -121,8 +125,8 @@ export default function BingoCard({
     if (!longPressState) return;
 
     const animate = () => {
-      // eslint-disable-next-line react-compiler/react-compiler
-      const elapsed = performance.now() - longPressState.startTime;
+      const currentTime = performance.now();
+      const elapsed = currentTime - longPressState.startTime;
       const progress = Math.min(elapsed / LONG_PRESS_DURATION, 1);
 
       setLongPressState((prev) => {
@@ -233,7 +237,7 @@ export default function BingoCard({
       {!isReadOnly && (
         <button
           onClick={() => setShowHelp(!showHelp)}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-opacity hover:opacity-70"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-opacity hover:opacity-70 no-export"
           style={{
             backgroundColor: 'var(--color-tan-accent)',
             color: 'white',
@@ -376,10 +380,17 @@ export default function BingoCard({
               )}
 
               {isFreeSpace ? (
-                <div
-                  className="w-8 h-8"
-                  style={{ color: 'var(--color-charcoal)' }}
-                />
+                <div className="w-full h-full overflow-hidden rounded-lg">
+                  <Image
+                    src="/assets/mookie.png"
+                    alt="Center"
+                    width={200}
+                    height={200}
+                    className="w-full h-full object-cover"
+                    priority
+                    style={{ maxWidth: '100%', maxHeight: '100%' }}
+                  />
+                </div>
               ) : isEditing ? (
                 <textarea
                   autoFocus
