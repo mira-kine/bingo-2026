@@ -20,3 +20,39 @@
   /* Border */
   --color-border-gold: var(--color-tan-accent);
 }
+
+/* Print Styles */
+@media print {
+  /* Hide interactive elements */
+  button,
+  a {
+    display: none !important;
+  }
+
+  /* Optimize page layout for printing */
+  body {
+    background: white !important;
+  }
+
+  /* Ensure card fits on one page */
+  @page {
+    size: auto;
+    margin: 1cm;
+  }
+
+  /* Remove screen-specific padding */
+  .min-h-screen {
+    min-height: auto !important;
+  }
+
+  /* Optimize card for print */
+  div[style*="border"] {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure colors are preserved */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

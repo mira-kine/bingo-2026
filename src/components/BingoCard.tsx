@@ -15,6 +15,7 @@ interface BingoCardProps {
   onUpdateGoal: (goalId: string, newText: string) => Promise<void>;
   onToggleComplete: (goalId: string, completed: boolean) => Promise<void>;
   onUpdateQuote: (newQuote: string) => Promise<void>;
+  isReadOnly?: boolean;
 }
 
 interface LongPressState {
@@ -44,6 +45,7 @@ export default function BingoCard({
   onUpdateGoal,
   onToggleComplete,
   onUpdateQuote,
+  isReadOnly = false,
 }: BingoCardProps) {
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editingQuote, setEditingQuote] = useState(false);
@@ -57,7 +59,7 @@ export default function BingoCard({
   const animationFrameRef = useRef<number | null>(null);
 
   // Constants
-  const LONG_PRESS_DURATION = 3000; // 3 seconds in milliseconds
+  const LONG_PRESS_DURATION = 2000; // 2 seconds in milliseconds
   const MOVEMENT_THRESHOLD = 10; // pixels - cancel if moved more than this
 
   // Sort goals by position to ensure correct order
@@ -94,13 +96,21 @@ export default function BingoCard({
     clientX: number,
     clientY: number
   ): void => {
-    if (goal.position === 4 || editingGoalId || goal.completed) return;
+    if (
+      isReadOnly ||
+      goal.position === 4 ||
+      editingGoalId ||
+      goal.completed ||
+      !goal.goal.trim()
+    )
+      return;
 
     triggerHaptic('light');
+    // eslint-disable-next-line react-compiler/react-compiler
     setLongPressState({
       goalId: goal.id,
       progress: 0,
-      startTime: Date.now(),
+      startTime: performance.now(),
       startX: clientX,
       startY: clientY,
     });
@@ -111,7 +121,8 @@ export default function BingoCard({
     if (!longPressState) return;
 
     const animate = () => {
-      const elapsed = Date.now() - longPressState.startTime;
+      // eslint-disable-next-line react-compiler/react-compiler
+      const elapsed = performance.now() - longPressState.startTime;
       const progress = Math.min(elapsed / LONG_PRESS_DURATION, 1);
 
       setLongPressState((prev) => {
@@ -190,7 +201,7 @@ export default function BingoCard({
 
   // Handle double-click to edit
   const handleGoalDoubleClick = (goal: Goal): void => {
-    if (goal.position === 4) return; // Free space not editable
+    if (isReadOnly || goal.position === 4) return; // Free space not editable or read-only mode
     cancelLongPress(); // Cancel any ongoing long press
     setEditingGoalId(goal.id);
   };
@@ -211,21 +222,27 @@ export default function BingoCard({
 
   return (
     <div
-      className="w-full max-w-2xl mx-auto p-8 rounded-lg relative"
-      style={{ border: '2px solid var(--color-border-gold)' }}
+      className="w-full max-w-2xl mx-auto p-4 sm:p-8 rounded-lg relative flex flex-col"
+      style={{
+        border: '2px solid var(--color-border-gold)',
+        height: 'calc(100vh - 2rem)',
+        maxHeight: 'calc(100vh - 2rem)',
+      }}
     >
-      {/* Help Button */}
-      <button
-        onClick={() => setShowHelp(!showHelp)}
-        className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-opacity hover:opacity-70"
-        style={{
-          backgroundColor: 'var(--color-tan-accent)',
-          color: 'white',
-        }}
-        title="Help"
-      >
-        ?
-      </button>
+      {/* Help Button - only show when not read-only */}
+      {!isReadOnly && (
+        <button
+          onClick={() => setShowHelp(!showHelp)}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-opacity hover:opacity-70"
+          style={{
+            backgroundColor: 'var(--color-tan-accent)',
+            color: 'white',
+          }}
+          title="Help"
+        >
+          ?
+        </button>
+      )}
 
       {/* Help Modal */}
       {showHelp && (
@@ -253,7 +270,9 @@ export default function BingoCard({
                 on any box to add or edit your goal text.
               </div>
               <div>
-                <strong>To mark as complete:</strong> Press and hold on a box for 3 seconds. A progress ring will fill up to show your progress. Keep your finger/mouse steady!
+                <strong>To mark as complete:</strong> Press and hold on a box
+                for 2 seconds. A progress ring will grow and fill up to show
+                your progress. Keep your finger/mouse steady!
               </div>
               <div>
                 <strong>To edit your intention:</strong> Click the quote text at
@@ -272,23 +291,17 @@ export default function BingoCard({
       )}
 
       {/* Header */}
-      <div className="text-center mb-8">
-        <h2
-          className="text-xl mb-2"
-          style={{ color: 'var(--color-tan-accent)' }}
-        >
-          2026
-        </h2>
+      <div className="text-center mb-4 sm:mb-6 flex-shrink-0">
         <h1
-          className="text-5xl font-bold tracking-wider"
+          className="text-3xl sm:text-5xl font-bold tracking-wider"
           style={{ color: 'var(--color-charcoal)' }}
         >
-          BINGO
+          2026 BINGO
         </h1>
       </div>
 
       {/* 3x3 Grid */}
-      <div className="grid grid-cols-3 gap-2 mb-8">
+      <div className="grid grid-cols-3 gap-2 mb-4 sm:mb-6 flex-1 content-center">
         {sortedGoals.map((goal) => {
           const isFreeSpace = goal.position === 4;
           const isDark = isDarkSquare(goal.position);
@@ -309,6 +322,10 @@ export default function BingoCard({
                 color: 'var(--color-charcoal)',
                 opacity: goal.completed ? 0.5 : 1,
                 textDecoration: goal.completed ? 'line-through' : 'none',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTouchCallout: 'none',
+                touchAction: 'none',
               }}
               onMouseDown={(e) => handleMouseDown(goal, e)}
               onMouseMove={handleMouseMove}
@@ -320,35 +337,39 @@ export default function BingoCard({
               onDoubleClick={() => handleGoalDoubleClick(goal)}
             >
               {/* Progress Ring - shows during long press */}
-              {isLongPressing && progress > 0 && (
+              {isLongPressing && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <svg
                     className="transform -rotate-90"
-                    width="60"
-                    height="60"
-                    viewBox="0 0 60 60"
+                    width="80"
+                    height="80"
+                    viewBox="0 0 80 80"
+                    style={{
+                      transform: `rotate(-90deg) scale(${
+                        0.25 + progress * 0.75
+                      })`,
+                    }}
                   >
                     {/* Background circle */}
                     <circle
-                      cx="30"
-                      cy="30"
-                      r="25"
+                      cx="40"
+                      cy="40"
+                      r="35"
                       fill="none"
                       stroke="var(--color-charcoal)"
-                      strokeWidth="3"
-                      opacity="0.2"
+                      strokeWidth="4"
+                      opacity="0.3"
                     />
                     {/* Progress circle */}
                     <circle
-                      cx="30"
-                      cy="30"
-                      r="25"
+                      cx="40"
+                      cy="40"
+                      r="35"
                       fill="none"
-                      stroke="var(--color-charcoal)"
-                      strokeWidth="3"
-                      strokeDasharray={`${2 * Math.PI * 25}`}
-                      strokeDashoffset={`${2 * Math.PI * 25 * (1 - progress)}`}
-                      style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+                      stroke="var(--color-tan-accent)"
+                      strokeWidth="4"
+                      strokeDasharray={`${2 * Math.PI * 35}`}
+                      strokeDashoffset={`${2 * Math.PI * 35 * (1 - progress)}`}
                     />
                   </svg>
                 </div>
@@ -363,6 +384,11 @@ export default function BingoCard({
                 <textarea
                   autoFocus
                   defaultValue={goal.goal}
+                  onFocus={(e) => {
+                    const length = e.target.value.length;
+                    const middle = Math.floor(length / 2);
+                    e.target.setSelectionRange(middle, middle);
+                  }}
                   onBlur={(e) => handleGoalBlur(goal, e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -370,8 +396,13 @@ export default function BingoCard({
                       e.currentTarget.blur();
                     }
                   }}
-                  className="w-full h-full bg-transparent resize-none outline-none text-center"
-                  style={{ color: 'var(--color-charcoal)' }}
+                  className="w-full bg-transparent resize-none outline-none text-center"
+                  style={{
+                    color: 'var(--color-charcoal)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                   onClick={(e) => e.stopPropagation()}
                   onDoubleClick={(e) => e.stopPropagation()}
                 />
@@ -384,7 +415,7 @@ export default function BingoCard({
       </div>
 
       {/* Quote/Intention - Click to edit */}
-      <div className="text-center">
+      <div className="text-center flex-shrink-0">
         {editingQuote ? (
           <input
             type="text"
@@ -403,11 +434,19 @@ export default function BingoCard({
           />
         ) : (
           <div
-            className="italic text-base cursor-pointer hover:opacity-70 transition-opacity"
+            className={`italic text-base ${
+              !isReadOnly
+                ? 'cursor-pointer hover:opacity-70 transition-opacity'
+                : ''
+            }`}
             style={{ color: 'var(--color-tan-accent)' }}
-            onClick={() => setEditingQuote(true)}
+            onClick={() => !isReadOnly && setEditingQuote(true)}
           >
-            {quote ? `"${quote}"` : 'Click to add your 2026 intention...'}
+            {quote
+              ? `"${quote}"`
+              : isReadOnly
+              ? ''
+              : 'Click to add your 2026 intention...'}
           </div>
         )}
       </div>
