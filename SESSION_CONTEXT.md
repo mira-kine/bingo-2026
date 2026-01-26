@@ -1,6 +1,6 @@
 # Session Context - 2026 Vision Bingo
 
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-01-26
 
 ## Current Status
 
@@ -52,30 +52,78 @@
   - Shows owner's name on public view ("User's 2026 Vision Board")
   - Help button and edit functionality hidden in read-only mode
 
-### 🚧 What's Next (Phase 6: Progressive Web App)
+### 🚧 What's Next (Phase 6: Authentication with Supabase Auth)
 
-1. **PWA Setup**
-   - Add manifest.json for installability
-   - Implement service worker for offline support
-   - Enable "Add to Home Screen" functionality
-   - Optimize for native-like mobile experience
-   - Push notifications (optional)
+**PRIORITY:** Implement proper authentication before adding sensitive features (diary entries, personal notes).
 
-2. **Testing & Polish**
-   - E2E testing of all features
-   - Test shareable links and public view
-   - Test image export quality
-   - Test print functionality
-   - Mobile device testing across iOS/Android
-   - Performance optimization if needed
+**Why Auth is Critical:**
+- Current name-based system breaks with duplicate names (no uniqueness)
+- No security - anyone who knows/guesses a name can access that account
+- Upcoming features (diary, subtasks) contain sensitive personal data
+- Need proper user identity verification before proceeding
+
+**Phase 6 Implementation:**
+1. **Enable Supabase Auth**
+   - Enable Email/Password provider in Supabase Dashboard
+   - Configure email templates (confirmation, password reset)
+   - Set up redirect URLs for local dev and production
+
+2. **Update Database Schema**
+   - Drop old `users` table
+   - Create `user_profiles` table (extends auth.users with display_name)
+   - Update `bingo_cards.user_id` FK to point to `auth.users.id`
+   - Add Row Level Security (RLS) policies:
+     - Users can only read/write their own cards
+     - Public cards readable by anyone (for sharing)
+
+3. **Create Auth Components**
+   - SignUp component (email, password, display name)
+   - Login component (email, password)
+   - Password reset flow
+   - Auth context/provider for session management
+
+4. **Update Landing Page**
+   - Replace simple name input with Login/SignUp forms
+   - Handle auth state changes
+   - Redirect to dashboard after login
+
+5. **Session Management**
+   - Check for existing session on app load
+   - Auto-refresh tokens
+   - Logout functionality
+   - Protected routes (redirect to login if not authenticated)
+
+6. **Data Migration**
+   - Script to migrate existing users to Supabase Auth (if needed)
+   - Associate existing cards with new auth users
+
+**Phase 6.5 (Quick Enhancement):**
+- Add OAuth: "Sign in with Google" (and optionally GitHub)
+- ~15 minutes once email/password auth is working
 
 ## Implementation Details
 
 ### Database Schema (Supabase)
+
+**Current (Phase 1-5):**
 ```
 users: id (uuid), name (text), created_at
-bingo_cards: id (uuid), user_id (FK), quote (text), created_at, updated_at
+bingo_cards: id (uuid), user_id (FK → users), quote (text), created_at, updated_at
 goals: id (uuid), bingo_card_id (FK), position (0-8), goal (text), completed (bool), created_at
+```
+
+**Updated (Phase 6+):**
+```
+auth.users: [Supabase Auth managed table]
+user_profiles: id (uuid, FK → auth.users), display_name (text), created_at
+bingo_cards: id (uuid), user_id (FK → auth.users), year (int), theme (text), quote (text), created_at, updated_at, last_edited_at
+goals: id (uuid), bingo_card_id (FK), position (0-8), goal (text), completed (bool), created_at
+```
+
+**Future (Phase 9+):**
+```
+goal_notes: id (uuid), goal_id (FK → goals), note_text (text), created_at, updated_at
+goal_subtasks: id (uuid), goal_id (FK → goals), task_text (text), completed (bool), order (int), created_at
 ```
 
 ### Key Files
@@ -98,40 +146,130 @@ goals: id (uuid), bingo_card_id (FK), position (0-8), goal (text), completed (bo
 
 ## Next Actions (In Order)
 
-**CURRENT STATUS:** MVP Complete! Phases 1-5 finished.
+**CURRENT STATUS:** MVP Complete! Phases 1-5 finished. Planning session complete for Phases 6-13.
 
-**NEXT PRIORITY:** Phase 6 - Progressive Web App (PWA) Migration
-1. Create manifest.json with app metadata and icons
-2. Implement service worker for offline caching
-3. Add "Add to Home Screen" prompt
-4. Test PWA functionality on iOS and Android
-5. Optimize for native-like experience
+**IMMEDIATE NEXT PRIORITY:** Phase 6 - Authentication with Supabase Auth
+1. Enable Supabase Auth in Supabase Dashboard (email/password provider)
+2. Update database schema (drop users table, create user_profiles, update FKs)
+3. Create auth components (SignUp, Login, PasswordReset)
+4. Update landing page with login/signup forms
+5. Implement session management and protected routes
+6. Test end-to-end authentication flow
+7. Optional: Add OAuth (Google/GitHub) in Phase 6.5
 
-**OPTIONAL ENHANCEMENTS:**
-- Push notifications for goal reminders
-- Dark mode support
-- Multiple card templates/themes
-- Social sharing with preview cards
+**SUBSEQUENT PRIORITIES:**
+- **Phase 7:** Multiple cards per user with dashboard and year/theme organization
+- **Phase 8:** Goal detail modal with full text editing
+- **Phase 9:** Diary entries and subtasks per goal (journal-style)
+- **Phase 10:** Web accessibility (WCAG 2.1 Level AA)
+- **Phase 11:** TBD (to be planned)
+- **Phase 12:** Progressive Web App (PWA)
+- **Phase 13:** React Native (future consideration)
 
-## Future Roadmap
+## Future Roadmap Summary
 
-### Phase 6: Progressive Web App (PWA) Migration
-- Add manifest.json for installability
-- Implement service worker for offline support
-- Enable "Add to Home Screen" functionality
-- Optimize for native-like mobile experience
-- Push notifications (optional)
+### Phase 7: Multiple Cards Foundation
+- Dashboard with card listing grouped by year
+- Card switcher dropdown in header
+- Create new cards with year/theme
+- Most recently edited card is default
+- Quote field remains (theme is just one-word identifier)
+- Theme defaults to first word of first goal if not provided
 
-### Phase 7: React Native (Future Consideration)
-- Evaluate need for native app vs PWA
-- If needed: Migrate to React Native for iOS/Android app stores
-- Native features: camera integration, advanced haptics, etc.
+### Phase 8: Goal Detail Modal (Core)
+- Button on each goal square to open detail view
+- Full-screen modal on mobile, centered on desktop
+- Shows full goal text (handles overflow from grid)
+- Editable goal text in larger textarea
+- Foundation for side tabs (prepared for Phase 9)
+- Grid view truncates to 3 lines with ellipsis
+
+### Phase 9: Goal Enhancements - Diary & Subtasks
+- Side tabs in modal: "Diary" and "Subtasks"
+- Diary tab: Timestamped journal entries with edit/delete
+- Subtasks tab: Checkbox list with reordering, progress indicator
+- New database tables: goal_notes, goal_subtasks
+- Consider: auto-complete goal when all subtasks done?
+
+### Phase 10: Web Accessibility (WCAG 2.1 Level AA)
+- Semantic HTML, keyboard navigation, screen reader support
+- Color contrast audit, focus indicators
+- ARIA labels and live regions
+- prefers-reduced-motion support
+- Test with VoiceOver, NVDA, Lighthouse
+
+### Phase 12: Progressive Web App (PWA) - Future
+- manifest.json for installability
+- Service worker for offline support
+- "Add to Home Screen" functionality
+- iOS-specific meta tags
+
+### Phase 13: React Native - Future
+- Evaluate PWA vs native app needs
+- Migrate to React Native if needed for app stores
 
 **TESTING:**
 - Manual testing of corner-click completion on desktop
 - Manual testing of swipe completion on mobile devices
 - End-to-end flow testing (already confirmed working)
 - Playwright MCP server is available and tested
+
+## Recent Planning Session (2026-01-26)
+
+### Key Decisions Made
+
+**1. Authentication Strategy**
+- **Decision:** Implement Supabase Auth with email/password + OAuth (Google/GitHub)
+- **Rationale:**
+  - Current name-based auth has no uniqueness (duplicate names break it)
+  - No security - anyone can access any account by guessing/knowing a name
+  - Upcoming diary/subtasks contain sensitive personal data
+  - OAuth is safer than custom password management
+- **Impact:** Phase 6 becomes critical blocker before adding new features
+
+**2. Multiple Cards Per User**
+- **Decision:** Users can create unlimited cards organized by year + theme
+- **Features:**
+  - Dashboard page showing all cards grouped by year
+  - Dropdown switcher for quick navigation
+  - Theme = one-word identifier (defaults to first word of first goal)
+  - Quote field remains (separate from theme)
+  - Most recently edited card is default on login
+- **Why:** Allows users to track goals across years and life areas
+
+**3. Goal Detail Modal with Journal Features**
+- **Decision:** Add button to open each goal in detailed modal view
+- **Features:**
+  - Side tabs: "Diary" and "Subtasks"
+  - Diary: Timestamped journal entries (add/edit/delete)
+  - Subtasks: Checkbox list with reordering and progress tracking
+  - Full goal text editing (grid view truncates to 3 lines)
+- **Why:** Turns simple goal tracker into comprehensive life planner
+- **Design Note:** Images and voice notes deferred to later phase
+
+**4. Web Accessibility**
+- **Decision:** Target WCAG 2.1 Level AA compliance
+- **Scope:**
+  - Keyboard navigation for all interactions
+  - Screen reader support (ARIA labels, semantic HTML)
+  - Color contrast audit
+  - prefers-reduced-motion support
+- **Why:** Inclusive design is a core value, not optional
+
+**5. PWA Timing**
+- **Decision:** Move PWA to Phase 12 (after core features)
+- **Rationale:** Auth, multiple cards, and journal features provide more user value first
+- **PWA still planned:** Just deprioritized for now
+
+### Updated Phase Plan
+- **Phase 6:** Supabase Auth (email/password + OAuth)
+- **Phase 7:** Multiple cards with dashboard
+- **Phase 8:** Goal detail modal (foundation)
+- **Phase 9:** Diary entries + subtasks
+- **Phase 10:** Web accessibility audit
+- **Phase 11:** TBD (to be planned)
+- **Phase 12:** PWA
+- **Phase 13:** React Native (future)
 
 ## Recent Session Updates (2026-01-14)
 
